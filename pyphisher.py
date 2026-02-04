@@ -1416,7 +1416,7 @@ def server():
         sleep(1)
     svo_success = False
     for _ in range(10):
-        svo_url = grep("(https://[-0-9a-z.]*.serveouserconent.com)", svo_file)
+        svo_url = grep("(https://[-0-9a-z.]*.serveousercontent.com)", svo_file)
         if svo_url != "":
             svo_success = True
             break
