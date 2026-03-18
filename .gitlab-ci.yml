@@ -23,6 +23,7 @@ build:
   artifacts:
     paths:
       - .venv
+      - pyproject.toml
       - dist/*.whl
 
 deploy:
