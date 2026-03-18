@@ -8,10 +8,13 @@ variables:
   PYPI_USERNAME: __token__
   PYPI_PASSWORD: $PYPI_TOKEN  # Replace with actual environment variable name
   POETRY_VERSION: "1.8.2"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
 build:
   stage: build
   script:
+    - python -m venv .venv
+    - source .venv/bin/activate
     - pip install --upgrade pip
     - pip install poetry==$POETRY_VERSION
     - cp files/pyproject.toml .
@@ -19,11 +22,13 @@ build:
     - poetry build
   artifacts:
     paths:
+      - .venv
       - dist/*.whl
 
 deploy:
   stage: deploy
   script:
+    - source .venv/bin/activate
     - poetry publish --username $PYPI_USERNAME --password $PYPI_PASSWORD
   dependencies:
     - build
