@@ -19,7 +19,7 @@
 """
 MIT License
 
-Copyright (c) 2021-2024 KasRoudra
+Copyright (c) 2021-2026 KasRoudra
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -792,6 +792,7 @@ def add_zip():
             break
 
 def update_sites():
+    shell(f"git -C {sites_dir} update-index --assume-unchanged templates.json")
     shell(f"git -C {sites_dir} pull origin main")
 
 # Polite Exit
@@ -805,6 +806,8 @@ def pexit():
 def show_options(sites):
     total_sites = len(sites)
     def optioner(index, text, max_len):
+        if text == "":
+            return ""
         # To fullfill max length of a part we append empty space
         space = " " * (max_len - len(text))
         if isinstance(index, (int, float)):
@@ -819,30 +822,34 @@ def show_options(sites):
     # Three columns
     one_third = int(total_sites/3)
     # If there is modulus, that means some entries are remaining, we need an extra row
-    if total_sites%3 > 0:
+    if total_sites % 3 > 0:
         one_third += 1
     options = "\n\n"
+    first_column = 23
+    second_column = 17
+    total_duo_column = first_column + second_column # 40
+    # second_column = total_duo_column - first_column
     # First index of last line should be less than one-third of total
     while first_index < one_third and total_sites > 10:
         second_index = first_index + one_third
         third_index = second_index + one_third
-        options += optioner(first_index, sites[first_index], 23) 
-        options += optioner(second_index,  sites[second_index], 17) 
-        options += optioner(third_index,  sites[third_index], 1) 
+        options += optioner(first_index, sites[first_index], first_column) 
+        options += optioner(second_index,  sites[second_index], second_column) 
+        options += optioner(third_index,  sites[third_index] if third_index < total_sites else "", 1) # Only the third column may have empty values
         options += "\n"
         first_index += 1
     if total_sites < 10:
         for i in range(total_sites):
-            options += optioner(i, 20) + "\n"
+            options += optioner(i, sites[i], 20) + "\n"
     options += "\n"
 
-    options += optioner("o", "AddZip", 24)
-    options += optioner("s", "Saved", 18) if cat(saved_file) != "" else " " * 22
+    options += optioner("o", "AddZip", first_column + 1)
+    options += optioner("s", "Saved", second_column + 1) if cat(saved_file) != "" else " " * (second_column + 5)
     options += optioner("u", "Update Sites", 1)
     options += "\n"
 
-    options += optioner("a", "About", 24)
-    options += optioner("m", "More Tools", 18)
+    options += optioner("a", "About", first_column + 1)
+    options += optioner("m", "More Tools", second_column + 1)
     options += optioner("0", "Exit", 1)
     options += "\n"
     lolcat(options)
