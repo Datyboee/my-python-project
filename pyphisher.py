@@ -276,9 +276,10 @@ lx_command = f"{tunneler_dir}/loclx"
 slim_command = f"{tunneler_dir}/slim"
 if isdir("/data/data/com.termux/files/home"):
     termux = True
-    cf_command = f"termux-chroot {cf_command}"
-    lx_command = f"termux-chroot {lx_command}"
-    slim_command = f"termux-chroot {slim_command}"
+    termux_extra_args = "SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem termux-chroot"
+    cf_command = f"{termux_extra_args} {cf_command}"
+    lx_command = f"{termux_extra_args} {lx_command}"
+    slim_command = f"{termux_extra_args} {slim_command}"
     saved_file = "/sdcard/.creds.txt"
 else:
     termux = False
